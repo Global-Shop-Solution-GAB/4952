@@ -1,0 +1,904 @@
+Program.Sub.ScreenSU.Start
+Gui.Progress..Create
+Gui.Progress..Caption("Progress")
+Gui.Progress..Size(9345,1995)
+Gui.Progress..MinX(0)
+Gui.Progress..MinY(0)
+Gui.Progress..Position(0,0)
+Gui.Progress..BackColor(-2147483633)
+Gui.Progress..MaxButton(False)
+Gui.Progress..MinButton(False)
+Gui.Progress..MousePointer(0)
+Gui.Progress..Event(UnLoad,Progress_UnLoad)
+Gui.Progress.progressBar1.Create(ProgressBar)
+Gui.Progress.progressBar1.Size(8730,255)
+Gui.Progress.progressBar1.Position(105,285)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Variable.UDT.uParts.Define("Parts",String)
+Variable.UDT.uParts.Define("Qty",Float)
+Variable.UDT.uParts.Define("Rate",Float)
+Variable.UDT.uParts.Define("UOM",String)
+Variable.UDT.uParts.Define("PL",String)
+Variable.UDT.uParts.Define("Desc",String)
+Variable.uGlobal.uParts.Declare("uParts")
+
+Variable.UDT.uWC.Define("WC",String)
+Variable.UDT.uWC.Define("PCSHR",Float)
+Variable.UDT.uWC.Define("SETUP",Float)   
+Variable.UDT.uWC.Define("RATE",Float)  
+Variable.uGlobal.uWC.Declare("uWC")
+
+Variable.UDT.uMQD.Define("Qty",Float)
+Variable.UDT.uMQD.Define("Price",Float)
+Variable.uGlobal.uMQD.Declare("uMQD")
+
+Variable.UDT.uCOMM.Define("Comments",String)
+Variable.uGlobal.uCOMM.Declare("uCOMM")
+
+Variable.UDT.uMQDN.Define("MQDN",String)
+Variable.UDT.uMQDN.Define("Parts",String)
+Variable.UDT.uMQDN.Define("MQDN_QTY1",String)
+Variable.UDT.uMQDN.Define("MQDN_PRICE1",String)
+Variable.UDT.uMQDN.Define("MQDN_QTY2",String)
+Variable.UDT.uMQDN.Define("MQDN_PRICE2",String)
+Variable.UDT.uMQDN.Define("MQDN_QTY3",String)
+Variable.UDT.uMQDN.Define("MQDN_PRICE3",String)
+Variable.UDT.uMQDN.Define("MQDN_SPACE",String)
+Variable.uGlobal.uMQDN.Declare("uMQDN")
+
+Program.External.Include.Library("GCG_4317_RtrUploadUPLRTRHR_V1.lib")
+V.Global.sComments.Declare(String)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.SetErrorHandler("Main_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+v.Local.sFQN.Declare(String)
+v.Local.sFileData.Declare(String)
+V.Local.iC.Declare(long)
+V.Local.i.Declare(long)
+V.Local.k.Declare(long)
+V.Local.sRowData.Declare(String)
+V.Global.sROUTER.Declare(String)
+V.Global.sROUTERDESC.Declare(String)
+V.Local.iUB.Declare(long)
+v.Local.j.Declare(long)
+v.Local.jcount.Declare(long)
+V.Local.sCommA.Declare(String)
+V.Local.sComm.Declare(String)
+V.Local.sComm1.Declare(String)
+V.Local.ssql.Declare(String)
+V.Local.sRet.Declare(String)
+V.Local.sTemp1.Declare(String)
+V.Local.sTemp2.Declare(String)
+V.Global.iSeqMult.Declare(long)
+V.Global.sUser.Declare(String)
+V.Global.sUser2.Declare(String)
+
+Function.Intrinsic.UI.ShowOpenFileDialog("","*.csv","C:\",v.Local.sFQN)
+
+Function.Intrinsic.Control.If(v.Local.sFQN,<>,"***CANCEL***")
+
+	Gui.Progress..Show 
+	Gui.Progress.progressBarStatus1.Visible(True)
+
+	Function.ODBC.Connection!Conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass,7200)
+	
+
+
+
+	f.Intrinsic.File.FileToStringArray(v.Local.sFQN,v.Ambient.NewLine,v.Local.sFileData)
+
+	V.uGlobal.uParts.Redim(-1,-1)
+	V.uGlobal.uWC.Redim(-1,-1)
+	V.uGlobal.uMQD.Redim(-1,-1)
+	V.uGlobal.uCOMM.Redim(-1,-1)
+	
+	Gui.Progress.progressBar1.min(0)
+	Gui.Progress.progressBar1.Max(v.Local.sFileData.UBound)
+
+	F.Intrinsic.Control.For(V.Local.k,2,v.Local.sFileData.UBound,1)
+		F.Intrinsic.String.SplitCsv(v.Local.sFileData(V.Local.k),V.Local.sRowData)
+			
+			'Router
+			f.Intrinsic.Control.If(V.Local.k,=,2)		
+				V.Global.sROUTER.Set(v.Local.sRowData(1).trim)
+				f.Intrinsic.Control.If(V.Global.sROUTER,=,"")
+					f.Intrinsic.UI.Msgbox("Invalid Router, Upload will Terminate")
+					f.Intrinsic.Control.CallSub(unloadsub)
+				f.Intrinsic.Control.Else
+					f.Intrinsic.Control.CallSub(validaterouter)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			'Desc
+			f.Intrinsic.Control.If(V.Local.k,=,3)	
+				V.Global.sROUTERDESC.Set(v.Local.sRowData(1).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			'User
+			f.Intrinsic.Control.If(V.Local.k,=,22)	
+				V.Global.sUser.Set(v.Local.sRowData(8).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			'User Field 2
+			f.Intrinsic.Control.If(V.Local.k,=,7)	
+				V.Global.sUser2.Set(v.Local.sRowData(8).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			'Parts
+			f.Intrinsic.Control.If(V.Local.k,">=",10,"and",V.Local.k,"<=",20)
+				f.Intrinsic.Control.CallSub(AddParts,"parts",v.Local.sRowData(1).trim,"Qty",v.Local.sRowData(6).trim,"Rate",v.Local.sRowData(7).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",24,"and",V.Local.k,"<=",27)
+				f.Intrinsic.Control.CallSub(AddParts,"parts",v.Local.sRowData(1).trim,"Qty",v.Local.sRowData(6).trim,"Rate",v.Local.sRowData(7).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",29,"and",V.Local.k,"<=",32)
+				f.Intrinsic.Control.CallSub(AddParts,"parts",v.Local.sRowData(1).trim,"Qty",v.Local.sRowData(6).trim,"Rate",v.Local.sRowData(7).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",34,"and",V.Local.k,"<=",43)
+				f.Intrinsic.Control.CallSub(AddParts,"parts",v.Local.sRowData(1).trim,"Qty",v.Local.sRowData(6).trim,"Rate",v.Local.sRowData(7).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",53,"and",V.Local.k,"<=",55)
+				f.Intrinsic.Control.CallSub(AddParts,"parts",v.Local.sRowData(7).trim,"Qty",v.Local.sRowData(11).trim,"Rate",v.Local.sRowData(12).trim)
+			f.Intrinsic.Control.EndIf 
+			
+			'WC router
+			f.Intrinsic.Control.If(V.Local.k,">=",49,"and",V.Local.k,"<=",55)
+				f.Intrinsic.Control.CallSub(AddWC,"WC",v.Local.sRowData(0).trim,"PCSHR",v.Local.sRowData(1).trim,"setup",v.Local.sRowData(2).trim)
+			f.Intrinsic.Control.EndIf 
+				
+			'MQDN QTY
+			f.Intrinsic.Control.If(V.Local.k,"=",47)
+				f.Intrinsic.Control.If(v.Local.sRowData(10).Float,>,0)
+					V.uGlobal.uMQD.Redim(0,2)
+					V.uGlobal.uMQD(0)!Qty.Set(v.Local.sRowData(8).Float)
+					V.uGlobal.uMQD(1)!Qty.Set(v.Local.sRowData(9).Float)
+					V.uGlobal.uMQD(2)!Qty.Set(v.Local.sRowData(10).Float)
+				f.Intrinsic.Control.elseIf(v.Local.sRowData(9).Float,>,0)
+					V.uGlobal.uMQD.Redim(0,1)
+					V.uGlobal.uMQD(0)!Qty.Set(v.Local.sRowData(8).Float)
+					V.uGlobal.uMQD(1)!Qty.Set(v.Local.sRowData(9).Float)
+				f.Intrinsic.Control.elseIf(v.Local.sRowData(8).Float,>,0)
+					V.uGlobal.uMQD.Redim(0,0)
+					V.uGlobal.uMQD(0)!Qty.Set(v.Local.sRowData(8).Float)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			'MQDN Price	
+			f.Intrinsic.Control.If(V.Local.k,"=",60)
+				v.Local.jcount.Set(8)
+				F.Intrinsic.Control.For(V.Local.j,0,v.uGlobal.uMQD.UBound,1)
+					V.uGlobal.uMQD(V.Local.j)!Price.Set(v.Local.sRowData(v.Local.jcount).Float)
+					f.Intrinsic.Math.Add(v.Local.jcount,1,v.Local.jcount)
+				f.Intrinsic.Control.Next(V.Local.j)
+			f.Intrinsic.Control.EndIf 
+				
+			'Comments
+			f.Intrinsic.Control.If(V.Local.k,"=",2)
+				f.Intrinsic.Control.If(v.Local.sRowData(4).Trim,<>,"")
+				'comments Array
+					Function.Intrinsic.String.LimitSplit(v.Local.sRowData(4).Trim, 30,V.Local.sCommA)
+					
+					F.Intrinsic.Control.For(V.Local.j,0,V.Local.sCommA.ubound,1)
+						f.Intrinsic.Control.If(V.uGlobal.uCOMM.UBound,=,-1)
+							V.uGlobal.uCOMM.Redim(0,0)
+						f.Intrinsic.Control.else
+							f.Intrinsic.Math.Add(V.uGlobal.uCOMM.UBound,1,V.Local.iUB)
+							V.uGlobal.uCOMM.RedimPreserve(0,V.Local.iUB)
+						f.Intrinsic.Control.EndIf 
+						V.uGlobal.uCOMM(V.Local.iUB)!Comments.Set(V.Local.sCommA(V.Local.j))
+						'V.Global.sComments.Set(V.Local.sCommA(V.Local.j))
+					f.Intrinsic.Control.Next(V.Local.j)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",4,"and",V.Local.k,"<=",7)
+				f.Intrinsic.Control.If(v.Local.sRowData(2).Trim,<>,"")
+					F.Intrinsic.String.RPad(v.Local.sRowData(2).Trim, " ", 20, V.Local.sTemp1)
+					F.Intrinsic.String.RPad(v.Local.sRowData(3).Trim, " ", 20, V.Local.sTemp2)
+					f.Intrinsic.String.Build("{0} 	{1}",V.Local.sTemp1,V.Local.sTemp2,V.Local.sComm)
+					f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm)
+				Function.Intrinsic.Control.EndIf
+				
+				f.Intrinsic.Control.If(V.Local.k,"=",6)
+					f.Intrinsic.Control.If(v.Local.sRowData(8).Trim,<>,"")
+						F.Intrinsic.String.RPad(v.Local.sRowData(8).Trim, " ", 20, V.Local.sTemp1)
+						F.Intrinsic.String.RPad(v.Local.sRowData(9).Trim, " ", 20, V.Local.sTemp2)
+						f.Intrinsic.String.Build("{0} 	{1}",V.Local.sTemp1,V.Local.sTemp2,V.Local.sComm1)
+					Function.Intrinsic.Control.EndIf
+				f.Intrinsic.Control.elseIf(V.Local.k,"=",7)
+					f.Intrinsic.Control.If(V.Local.sComm1,<>,"")
+						f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm1)
+					Function.Intrinsic.Control.EndIf
+					
+					f.Intrinsic.Control.If(v.Local.sRowData(8).Trim,<>,"")
+						F.Intrinsic.String.RPad(v.Local.sRowData(8).Trim, " ", 20, V.Local.sTemp1)
+						F.Intrinsic.String.RPad(v.Local.sRowData(9).Trim, " ", 20, V.Local.sTemp2)
+						f.Intrinsic.String.Build("{0}	{1}",V.Local.sTemp1,V.Local.sTemp2,V.Local.sComm1)
+						f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm1)
+					Function.Intrinsic.Control.EndIf
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+		
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",9,"and",V.Local.k,"<=",20)
+				f.Intrinsic.Control.If(v.Local.sRowData(1).Trim,<>,"")
+					F.Intrinsic.String.RPad(v.Local.sRowData(1).Trim, " ", 20, V.Local.sTemp1)
+					F.Intrinsic.String.RPad(v.Local.sRowData(2).Trim, " ", 20, V.Local.sTemp2)
+					f.Intrinsic.String.Build("{0} 	{1} 	{2}",V.Local.sTemp1,V.Local.sTemp2,v.Local.sRowData(3).Trim,V.Local.sComm)
+					f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",24,"and",V.Local.k,"<=",27)
+				f.Intrinsic.Control.If(v.Local.sRowData(1).Trim,<>,"")
+					F.Intrinsic.String.RPad(v.Local.sRowData(1).Trim, " ", 20, V.Local.sTemp1)
+					F.Intrinsic.String.RPad(v.Local.sRowData(2).Trim, " ", 20, V.Local.sTemp2)
+					
+					f.Intrinsic.String.Build("{0}	{1}	{2}",V.Local.sTemp1,V.Local.sTemp2,v.Local.sRowData(3).Trim,V.Local.sComm)
+					f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",29,"and",V.Local.k,"<=",32)
+				f.Intrinsic.Control.If(v.Local.sRowData(1).Trim,<>,"")
+					F.Intrinsic.String.RPad(v.Local.sRowData(1).Trim, " ", 20, V.Local.sTemp1)
+					F.Intrinsic.String.RPad(v.Local.sRowData(2).Trim, " ", 20, V.Local.sTemp2)
+					f.Intrinsic.String.Build("{0}	{1}	{2}",V.Local.sTemp1,V.Local.sTemp2,v.Local.sRowData(3).Trim,V.Local.sComm)
+					f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,"=",39)
+				f.Intrinsic.Control.If(v.Local.sRowData(2).Trim,<>,"")
+					F.Intrinsic.String.RPad(v.Local.sRowData(3).Trim, " ", 20, V.Local.sTemp1)
+					F.Intrinsic.String.RPad(v.Local.sRowData(4).Trim, " ", 20, V.Local.sTemp2)
+					f.Intrinsic.String.Build("{0}	{1}	{2}",V.Local.sTemp1,V.Local.sTemp2,v.Local.sRowData(5).Trim,V.Local.sComm)
+					f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,"=",43)
+				f.Intrinsic.Control.If(v.Local.sRowData(2).Trim,<>,"")
+					F.Intrinsic.String.RPad(v.Local.sRowData(3).Trim, " ", 20, V.Local.sTemp1)
+					F.Intrinsic.String.RPad(v.Local.sRowData(4).Trim, " ", 20, V.Local.sTemp2)
+					f.Intrinsic.String.Build("{0}	{1}	{2}",V.Local.sTemp1,V.Local.sTemp2,v.Local.sRowData(5).Trim,V.Local.sComm)
+					f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm)
+				Function.Intrinsic.Control.EndIf
+			f.Intrinsic.Control.EndIf 
+			
+			f.Intrinsic.Control.If(V.Local.k,">=",44,"and",V.Local.k,"<=",45)
+				F.Intrinsic.String.RPad(v.Local.sRowData(0).Trim, " ", 20, V.Local.sTemp1)
+				F.Intrinsic.String.RPad(v.Local.sRowData(1).Trim, " ", 20, V.Local.sTemp2)
+				f.Intrinsic.String.Build("{0}	{1}",V.Local.sTemp1,V.Local.sTemp2,V.Local.sComm)
+				f.Intrinsic.Control.CallSub(addlncomments,"CLMN",V.Local.sComm)
+			Function.Intrinsic.Control.EndIf
+		
+			Gui.Progress.progressBar1.Value(V.Local.k)
+	f.Intrinsic.Control.Next(V.Local.k)
+
+	Gui.Progress.progressBar1.min(0)
+	f.Intrinsic.Control.CallSub(upload_start)
+	
+	''''''''add "BPWIP" to last sequence in router ' added 4/25/2018 DRH
+	F.Intrinsic.String.Build("Select Top 1 LINE_ROUTER From ROUTER_LINE Where ROUTER = '{0}' Order By LINE_ROUTER desc", V.Global.sROUTER, V.Local.ssql)
+	F.ODBC.Connection!Conx.Executeandreturn(V.Local.ssql, V.Local.sRet)
+	F.Intrinsic.String.Build("Update ROUTER_LINE Set OPERATION = 'BPWIP' Where ROUTER = '{0}' And LINE_ROUTER = '{1}'", V.Global.sROUTER, V.Local.sRet, V.local.ssql)
+	F.ODBC.Connection!Conx.Execute(V.Local.ssql)	
+	
+	'update the comment lines, since they are more than 30 long we have to save directly to the table added 4/25/2018 DRH
+	F.Intrinsic.Control.For(V.Local.iC, 0, V.uGlobal.uCOMM.UBound, 1)
+		F.Intrinsic.String.Build("{0}{1}{2}",V.Global.sComments,  V.uGlobal.uCOMM(V.Local.iC)!Comments, V.Ambient.NewLine, V.Global.sComments)
+	F.Intrinsic.Control.Next(V.Local.iC)
+	F.Intrinsic.String.Build("Update RTR_SEQ_COMMENTS  Set TEXT = '{0}' Where RTR_NUMBER = '{1}' And RTR_SEQ = '001000' ", V.Global.sComments, V.Global.sROUTER, V.Local.ssql)
+	F.ODBC.Connection!Conx.Execute(V.Local.ssql)	
+	f.ODBC.Connection!Conx.Close 
+	f.Intrinsic.UI.Msgbox("Router upload completed")
+Function.Intrinsic.Control.EndIf
+
+f.Intrinsic.Control.End 
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Main_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	f.Intrinsic.Control.End 
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Main.End
+
+Program.Sub.ValidateRouter.Start
+F.Intrinsic.Control.SetErrorHandler("ValidateRouter_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSQL.Declare(String)
+V.Local.iRet.Declare(long)
+
+Function.Intrinsic.String.build("SELECT ROUTER FROM V_ROUTER_HEADER WHERE ROUTER = '{0}'",V.Global.sROUTER,v.Local.sSQL)
+Function.ODBC.Connection!Conx.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+Function.Intrinsic.Control.If(V.ODBC.Conx!rst.EOF,=,False)
+	F.Intrinsic.UI.Msgbox("Router Already Exists in Global Shop. Do you want to delete and rebuild?","Router Already Exists",4,V.Local.iRet)
+	F.Intrinsic.Control.if(V.Local.iRet,=,6)
+		F.Intrinsic.String.Concat("DELETE FROM ROUTER_HEADER WHERE ROUTER = '",V.Global.sROUTER,"'",V.Local.sSQL)
+		F.ODBC.Connection!Conx.Execute(V.Local.sSQL)
+		F.Intrinsic.String.Concat("DELETE FROM ROUTER_LINE WHERE ROUTER ='",V.Global.sROUTER,"'",V.Local.sSQL)
+		F.ODBC.Connection!Conx.Execute(V.Local.sSQL)
+		F.Intrinsic.String.Concat("delete from MAT_QTY_DISCNT where Part ='",V.Global.sROUTER,"-F'",V.Local.sSQL)
+		F.ODBC.Connection!Conx.Execute(V.Local.sSQL)
+		F.Intrinsic.String.Concat("DELETE FROM RTR_SEQ_COMMENTS WHERE RTR_Number ='",V.Global.sROUTER,"'",V.Local.sSQL)
+		F.ODBC.Connection!Conx.Execute(V.Local.sSQL)
+
+	F.Intrinsic.CONTROL.Else
+		F.Intrinsic.UI.Msgbox("Import Terminated","Import Terminated")
+		F.ODBC.conx!rst.Close
+		f.Intrinsic.Control.CallSub(unloadsub)
+	Function.Intrinsic.Control.EndIf
+Function.Intrinsic.Control.EndIf
+
+F.ODBC.conx!rst.Close
+
+'F.Intrinsic.Variable.AddRV("bRet","True")
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("ValidateRouter_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.ValidateRouter.End
+
+Program.Sub.UnloadSub.Start
+F.Intrinsic.Control.SetErrorHandler("UnloadSub_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+Function.ODBC.Connection!Conx.Close 
+Function.Intrinsic.Control.End
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("UnloadSub_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.UnloadSub.End
+
+Program.Sub.AddParts.Start
+F.Intrinsic.Control.SetErrorHandler("AddParts_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.iUB.Declare(long)
+V.Local.sSql.Declare(String)
+
+f.Intrinsic.Control.If(v.Args.parts ,<>,"")
+	f.Intrinsic.Control.If(V.uGlobal.uParts.UBound,=,-1)
+		V.uGlobal.uParts.Redim(0,0)
+	f.Intrinsic.Control.else
+		F.Intrinsic.Math.Add(V.uGlobal.uParts.UBound,1,V.Local.iUB)
+		V.uGlobal.uParts.RedimPreserve(0,V.Local.iUB)
+	f.Intrinsic.Control.EndIf
+	V.uGlobal.uParts(V.Local.iUB)!Parts.Set(v.Args.parts)
+
+	V.uGlobal.uParts(V.Local.iUB)!Qty.Set(v.Args.Qty)
+	V.uGlobal.uParts(V.Local.iUB)!Rate.Set(v.Args.Rate)
+'	f.Intrinsic.String.Build("select Part,Product_line,Description,UM_Inventory from INVENTORY_MSTR where part ='{0}'",v.Args.parts,V.Local.sSql)
+'	F.ODBC.Connection!conX.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+'	F.Intrinsic.Control.If(V.ODBC.conX!rst.EOF,=,False)
+'		V.uGlobal.uParts(V.Local.iUB)!UOM.Set(v.ODBC.Conx!rst.FieldVal!UM_Inventory)
+'		V.uGlobal.uParts(V.Local.iUB)!PL.Set(v.ODBC.Conx!rst.FieldVal!Product_line)
+'		V.uGlobal.uParts(V.Local.iUB)!Desc.Set(v.ODBC.Conx!rst.FieldVal!Description)
+'	f.Intrinsic.Control.Else
+''		V.uGlobal.uParts(V.Local.iUB)!UOM.Set("EA")
+'		V.uGlobal.uParts(V.Local.iUB)!PL.Set("")
+'		V.uGlobal.uParts(V.Local.iUB)!Desc.Set("***PARTNO NOT FOUND IN GSS***")
+'	Function.Intrinsic.Control.EndIf
+'	f.ODBC.Conx!rst.Close 
+Function.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Label("AddParts_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.AddParts.End
+
+Program.Sub.AddWC.Start
+F.Intrinsic.Control.SetErrorHandler("AddWC_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+V.Local.iUB.Declare(long)
+V.Local.sSql.Declare(String)
+
+
+f.Intrinsic.Control.If(v.Args.WC ,<>,"")
+	f.Intrinsic.Control.If(V.uGlobal.uWC.UBound,=,-1)
+		V.uGlobal.uWC.Redim(0,0)
+	f.Intrinsic.Control.else
+		F.Intrinsic.Math.Add(V.uGlobal.uWC.UBound,1,V.Local.iUB)
+		V.uGlobal.uWC.RedimPreserve(0,V.Local.iUB)
+	f.Intrinsic.Control.EndIf
+	
+
+
+	V.uGlobal.uWC(V.Local.iUB)!WC.Set(v.Args.WC)
+	V.uGlobal.uWC(V.Local.iUB)!PCSHR.Set(v.Args.PCSHR)
+	V.uGlobal.uWC(V.Local.iUB)!SETUP.Set(v.Args.SETUP)
+'	f.Intrinsic.String.Build("select Standard_Cost from v_WORKCENTERS where machine ='{0}'",v.Args.WC,V.Local.sSql)
+'	F.ODBC.Connection!conX.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+'	F.Intrinsic.Control.If(V.ODBC.conX!rst.EOF,=,False)
+'		V.uGlobal.uWC(V.Local.iUB)!Rate.Set(v.ODBC.Conx!rst.FieldVal!Standard_Cost)
+'	f.Intrinsic.Control.Else
+'		V.uGlobal.uWC(V.Local.iUB)!Rate.Set("0")
+'	Function.Intrinsic.Control.EndIf
+'	f.ODBC.Conx!rst.Close 
+Function.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("AddWC_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.AddWC.End
+
+Program.Sub.AddLncomments.Start
+F.Intrinsic.Control.SetErrorHandler("AddLncomments_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.iUB.Declare(long)
+V.Local.sComm.Declare(String)
+
+	f.Intrinsic.Control.If(V.uGlobal.uCOMM.UBound,=,-1)
+		V.uGlobal.uCOMM.Redim(0,0)
+	f.Intrinsic.Control.else
+		F.Intrinsic.Math.Add(V.uGlobal.uCOMM.UBound,1,V.Local.iUB)
+		V.uGlobal.uCOMM.RedimPreserve(0,V.Local.iUB)
+	f.Intrinsic.Control.EndIf
+	
+	V.uGlobal.uCOMM(V.Local.iUB)!Comments.Set(v.Args.CLMN)
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("AddLncomments_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.AddLncomments.End
+
+Program.Sub.addHdrRec.Start
+F.Intrinsic.Control.SetErrorHandler("addHdrRec_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+
+V.uGlobal.uRtr(V.Global.iLineRTR)!Number.Set(V.Global.sRouter)
+V.uGlobal.uRtr(V.Global.iLineRTR)!Desc.Set(V.Global.sROUTERDESC)
+v.uGlobal.uRtr(v.Global.iLineRTR)!UM.Set("EA")
+V.uGlobal.uRTR(v.Global.iLineRTR)!Sort1.Set(V.Global.sUser)
+V.uGlobal.uRTR(v.Global.iLineRTR)!Sort2.Set(V.Global.sUser2)
+
+'V.uGlobal.uRtr(V.Global.iLineRTR)!Qty1.Set(V.uGlobal.uMQD(0)!Qty)
+'V.uGlobal.uRtr(V.Global.iLineRTR)!Qty2.Set(V.uGlobal.uMQD(1)!Qty)
+'V.uGlobal.uRtr(V.Global.iLineRTR)!Qty3.Set(V.uGlobal.uMQD(2)!Qty)
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("addHdrRec_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.addHdrRec.End
+
+Program.Sub.Upload_Start.Start
+F.Intrinsic.Control.SetErrorHandler("Upload_Start_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSel.Declare(String)
+
+' from.LIB, to clear the udts used
+F.Intrinsic.Control.CallSub(Routerclear)
+
+
+f.Intrinsic.Control.CallSub(addhdrrec)
+
+F.Intrinsic.Control.CallSub(Routeraddrecord)
+
+
+F.Intrinsic.Control.CallSub(Routerheader)
+	' clear, again if header was created
+
+F.Intrinsic.Control.CallSub(Routerclear)
+
+' there could be a line with no seq, delete it
+F.Intrinsic.String.Concat("delete from Router_Line where Router = '",V.Global.sRouter,"' and Line_Router = '000000'",V.Local.sSel)
+F.ODBC.Connection!Conx.Execute(V.Local.sSel)
+
+f.Intrinsic.Control.CallSub(getsequence)
+
+' add line record, for every row
+f.Intrinsic.Control.CallSub(addline)
+
+F.Intrinsic.Control.CallSub(Routerline)
+
+'' if invalid parts were found, write part numbers to a txt and open to the screen
+'F.Intrinsic.Control.If(V.Global.sInvalidParts.Trim,<>,"")
+'	F.Intrinsic.String.Concat(V.System.Temp,"\Invalid Parts.txt",V.Local.sInvalidPartList)
+'	F.Intrinsic.File.String2File(V.Local.sInvalidPartList,V.Global.sInvalidParts)
+'	F.Intrinsic.Task.ShellExec(V.Caller.Handle,"OPEN",V.Local.sInvalidPartList,"","",1)
+'F.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("Upload_Start_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.Upload_Start.End
+
+Program.Sub.GetSequence.Start
+F.Intrinsic.Control.SetErrorHandler("GetSeaquence_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.Local.sSel.Declare(String)
+V.Local.sRet.Declare(String)
+
+
+' get seq increment
+V.Local.sSel.Set("select F_Long from Op_Header where ID = '401113'")
+F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSel,V.Local.sRet)
+' if sequence increment not found
+F.Intrinsic.Control.If(V.Local.sRet.Trim,=,"")
+	F.Intrinsic.UI.Msgbox("Operations sequence multiple not found.")
+	F.Intrinsic.Control.CallSub(unloadsub)
+F.Intrinsic.Control.EndIf
+
+' set var to increment value
+V.Global.iSeqMult.Set(V.Local.sRet.Long)
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("GetSeaquence_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.GetSequence.End
+
+Program.Sub.AddLine.Start
+F.Intrinsic.Control.SetErrorHandler("AddLine_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+V.local.iNextSeq.Declare(long)
+V.Local.sNextSeq.Declare(String)
+V.Local.i.Declare(long)
+V.Local.sSel.Declare(String)
+V.Local.sRet.Declare(String)
+V.local.iNextcommSeq.Declare(long)
+V.Local.lubound.Declare(long)
+V.Local.lTOT.Declare(long)
+
+'-------------------comments
+
+
+	
+	f.Intrinsic.Math.Add(v.uGlobal.uCOMM.UBound,v.uGlobal.uParts.UBound,v.uGlobal.uWC.UBound,5,V.Local.lTOT)
+
+	Gui.Progress.progressBar1.min(0)
+	Gui.Progress.progressBar1.Max(v.Local.lTOT)
+	
+F.Intrinsic.Math.Add(V.Global.iLineRTR,1,V.Global.iLineRTR)
+
+
+	' next udt element id
+
+	f.Intrinsic.Math.Add(v.uGlobal.uCOMM.UBound,1,V.Local.lubound)
+	f.Intrinsic.Math.Add(v.uGlobal.uRtr.UBound,V.Local.lubound,V.Local.lubound)
+	
+	V.uGlobal.uRtr.RedimPreserve(0,V.Local.lubound)
+	
+	F.Intrinsic.Math.Add(V.local.iNextSeq,V.Global.iSeqMult,V.local.iNextSeq)
+	V.local.iNextcommSeq.Set(V.local.iNextSeq)
+	
+	F.Intrinsic.Control.For(V.Local.i,0,v.uGlobal.uCOMM.UBound,1)
+			' add line increment to getnext seq for line
+		'for comments increment the sequence by 1
+		
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Desc.Set(V.Global.sROUTERDESC)
+		v.uGlobal.uRtr(v.Global.iLineRTR)!UM.Set("EA")
+		V.uGlobal.uRTR(v.Global.iLineRTR)!Sort1.Set(V.Global.sUser)
+		V.uGlobal.uRTR(v.Global.iLineRTR)!Sort2.Set(V.Global.sUser2)
+		
+		Gui.Progress.progressBar1.Value(V.Global.iLineRTR)
+		
+		F.Intrinsic.String.LPad(V.local.iNextcommSeq,"0",6,V.Local.sNextSeq)
+		
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Number.Set(V.Global.sRouter.Trim)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Sequence.Set(V.Local.sNextSeq)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!LMO.Set("C")
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Seq_Desc.Set(V.uGlobal.uCOMM(V.Local.i)!Comments.Trim)
+		F.Intrinsic.Math.Add(V.Global.iLineRTR,1,V.Global.iLineRTR)
+		F.Intrinsic.Math.Add(V.local.iNextcommSeq,1,V.local.iNextcommSeq)
+	f.Intrinsic.Control.next(V.Local.i)
+
+
+	' from .LIB, call ROUTERAddRecord to format the udt values for the file
+	F.Intrinsic.Control.CallSub(Routeraddrecord)
+'next loop
+
+
+	f.Intrinsic.Math.Add(v.uGlobal.uParts.UBound,1,V.Local.lubound)
+	f.Intrinsic.Math.Add(v.uGlobal.uRtr.UBound,V.Local.lubound,V.Local.lubound)
+	V.uGlobal.uRtr.RedimPreserve(0,V.Local.lubound)
+
+	F.Intrinsic.Control.For(V.Local.i,0,v.uGlobal.uParts.UBound,1)
+		Gui.Progress.progressBar1.Value(V.Global.iLineRTR)
+		
+			' add line increment to getnext seq for line
+		F.Intrinsic.Math.Add(V.local.iNextSeq,V.Global.iSeqMult,V.local.iNextSeq)
+		F.Intrinsic.String.LPad(V.local.iNextSeq,"0",6,V.Local.sNextSeq)
+		
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Desc.Set(V.Global.sROUTERDESC)
+		v.uGlobal.uRtr(v.Global.iLineRTR)!UM.Set("EA")
+		V.uGlobal.uRTR(v.Global.iLineRTR)!Sort1.Set(V.Global.sUser)
+		V.uGlobal.uRTR(v.Global.iLineRTR)!Sort2.Set(V.Global.sUser2)
+		
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Number.Set(V.Global.sRouter.Trim)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!LMO.Set("M")
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Part.Set(V.uGlobal.uParts(V.Local.i)!Parts)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Sequence.Set(V.Local.sNextSeq)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Rate.Set(V.uGlobal.uParts(V.Local.i)!Rate)
+		'Qty
+		V.uGlobal.uRtr(V.Global.iLineRTR)!RunTime.Set(V.uGlobal.uParts(V.Local.i)!Qty)
+		
+		F.Intrinsic.String.Build (" select Part, UM_Inventory, Description, Time_Material_Lead,Product_line from V_Inventory_Mstr where Part = '{0}'",V.uGlobal.uParts(V.Local.i)!Parts,V.Local.sSel)
+		F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSel,V.Local.sRet)
+		' if sequence increment not found
+		F.Intrinsic.Control.If(V.Local.sRet.Trim,<>,"")
+			f.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+			V.uGlobal.uRtr(V.Global.iLineRTR)!UM.Set(V.Local.sRet(1).Trim)
+			V.uGlobal.uRtr(V.Global.iLineRTR)!Seq_Desc.Set(V.Local.sRet(2).Trim)
+			V.uGlobal.uRtr(v.Global.iLineRTR)!Lead.Set(V.Local.sRet(3).Float)
+			V.uGlobal.uRtr(V.Global.iLineRTR)!Prod_Line.Set(V.Local.sRet(4).Trim)
+		f.Intrinsic.Control.Else
+			V.uGlobal.uRtr(V.Global.iLineRTR)!Seq_Desc.Set("**Part not in Inventory**")
+		f.Intrinsic.Control.EndIf 
+		F.Intrinsic.Math.Add(V.Global.iLineRTR,1,V.Global.iLineRTR)
+	f.Intrinsic.Control.next(V.Local.i)
+
+	'Add MQD Part
+		f.Intrinsic.Math.Add(v.uGlobal.uRtr.UBound,1,V.Local.lubound)
+		V.uGlobal.uRtr.RedimPreserve(0,V.Local.lubound)
+			' add line increment to getnext seq for line
+		F.Intrinsic.Math.Add(V.local.iNextSeq,V.Global.iSeqMult,V.local.iNextSeq)
+		F.Intrinsic.String.LPad(V.local.iNextSeq,"0",6,V.Local.sNextSeq)
+	
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Number.Set(V.Global.sRouter.Trim)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!LMO.Set("M")
+		
+		f.Intrinsic.String.Build("{0}-F",V.Global.sRouter.Trim,V.uGlobal.uRtr(V.Global.iLineRTR)!Part)
+'		
+'		V.uGlobal.uRtr(V.Global.iLineRTR)!Part.Set(V.uGlobal.uParts(V.Local.i)!Parts)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Sequence.Set(V.Local.sNextSeq)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!RunTime.Set(1)
+		
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Seq_Desc.Set("**MQD Freight**")
+		F.Intrinsic.Math.Add(V.Global.iLineRTR,1,V.Global.iLineRTR)
+		
+		f.Intrinsic.Control.CallSub(buildmqd)
+	
+	' from .LIB, call ROUTERAddRecord to format the udt values for the file
+	F.Intrinsic.Control.CallSub(Routeraddrecord)
+
+'next loop	
+	
+	'-------------------WC
+' next udt element id
+
+	
+	f.Intrinsic.Math.Add(v.uGlobal.uWC.UBound,1,V.Local.lubound)
+	f.Intrinsic.Math.Add(v.uGlobal.uRtr.UBound,V.Local.lubound,V.Local.lubound)
+	V.uGlobal.uRtr.RedimPreserve(0,V.Local.lubound)
+
+	F.Intrinsic.Control.For(V.Local.i,0,v.uGlobal.uWC.UBound,1)
+		Gui.Progress.progressBar1.Value(V.Global.iLineRTR)
+			' add line increment to getnext seq for line
+		F.Intrinsic.Math.Add(V.local.iNextSeq,V.Global.iSeqMult,V.local.iNextSeq)
+		F.Intrinsic.String.LPad(V.local.iNextSeq,"0",6,V.Local.sNextSeq)
+	
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Number.Set(V.Global.sRouter.Trim)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!LMO.Set("L")
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Sequence.Set(V.Local.sNextSeq)
+		
+		V.uGlobal.uRtr(V.Global.iLineRTR)!WorkCenter.Set(V.uGlobal.uWC(V.Local.i)!WC)
+		V.uGlobal.uRtr(V.Global.iLineRTR)!Setup.Set(V.uGlobal.uWC(V.Local.i)!Setup)
+		'Qty
+		V.uGlobal.uRtr(V.Global.iLineRTR)!RunTime.Set(V.uGlobal.uWC(V.Local.i)!PCSHR)
+
+		F.Intrinsic.String.Build (" select Machine, Standard_Cost,WC_Name from V_Workcenters where ucase(Machine) = '{0}'",V.uGlobal.uWC(V.Local.i)!WC.UCase ,V.Local.sSel)
+		F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSel,V.Local.sRet)
+		' if sequence increment not found
+		F.Intrinsic.Control.If(V.Local.sRet.Trim,<>,"")
+			f.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+			V.uGlobal.uRtr(V.Global.iLineRTR)!Seq_Desc.Set(V.Local.sRet(2).Trim)
+			V.uGlobal.uRtr(V.Global.iLineRTR)!Rate.Set(V.Local.sRet(1).Float)
+		f.Intrinsic.Control.Else
+			V.uGlobal.uRtr(V.Global.iLineRTR)!Seq_Desc.Set("**WC not found in GSS**")
+		f.Intrinsic.Control.EndIf 
+		
+		F.Intrinsic.Math.Add(V.Global.iLineRTR,1,V.Global.iLineRTR)
+	f.Intrinsic.Control.next(V.Local.i)
+	
+	' from .LIB, call ROUTERAddRecord to format the udt values for the file
+	F.Intrinsic.Control.CallSub(Routeraddrecord)
+'next loop
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("AddLine_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.AddLine.End
+
+Program.Sub.Progress_UnLoad.Start
+
+Program.Sub.Progress_UnLoad.End
+
+Program.Sub.BuildMQD.Start
+F.Intrinsic.Control.SetErrorHandler("BuildMQD_Err")
+F.Intrinsic.Control.ClearErrors
+
+V.Local.sError.Declare(String)
+
+
+V.Local.iLengthArray.Declare(long)
+V.Local.sElements.Declare(string)
+V.Local.sLine.Declare(string)
+V.Local.sUPL.Declare(string)
+V.Local.bEx.Declare(boolean)
+V.Local.sFQN.Declare(string)
+V.Local.sHold.Declare(string)
+V.Local.fQTYPrice.Declare(float)
+V.Local.sparam.Declare(string)
+
+
+V.Local.sUPL.Set("")
+v.uGlobal.uMQDN.Redim(0,0)
+
+V.uGlobal.uMQDN(0)!Parts.Set(V.uGlobal.uRtr(V.uGlobal.uRtr.UBound)!Part)
+
+	F.Intrinsic.String.RPad(V.uGlobal.uMQDN(0)!Parts," ",20,V.Local.shold)
+	F.Intrinsic.String.Left(V.Local.shold,20,V.Local.sHold)
+	V.uGlobal.uMQDN(0)!Parts.set(V.local.sHold)
+	
+	F.Intrinsic.String.Format(V.uGlobal.uMQD(0)!Qty,"0.0000",V.Local.sHold)
+	F.Intrinsic.String.LPad(V.Local.sHold," ",12,V.Local.sHold)
+	F.Intrinsic.String.Left(V.Local.sHold,12,V.Local.sHold)
+	V.uGlobal.uMQDN(0)!MQDN_QTY1.set(V.local.sHold)
+	
+	F.Intrinsic.String.Format(V.uGlobal.uMQD(0)!Price,"0.0000",V.Local.sHold)
+	F.Intrinsic.String.LPad(V.Local.sHold," ",12,V.Local.sHold)
+	F.Intrinsic.String.Left(V.Local.sHold,12,V.Local.sHold)
+	V.uGlobal.uMQDN(0)!MQDN_PRICE1.set(V.local.sHold)
+
+	F.Intrinsic.String.Format(V.uGlobal.uMQD(1)!Qty,"0.0000",V.Local.sHold)
+	F.Intrinsic.String.LPad(V.Local.sHold," ",12,V.Local.sHold)
+	F.Intrinsic.String.Left(V.Local.sHold,12,V.Local.sHold)
+	V.uGlobal.uMQDN(0)!MQDN_QTY2.set(V.local.sHold)
+
+	F.Intrinsic.String.Format(V.uGlobal.uMQD(1)!Price,"0.0000",V.Local.sHold)
+	F.Intrinsic.String.LPad(V.Local.sHold," ",12,V.Local.sHold)
+	F.Intrinsic.String.Left(V.Local.sHold,12,V.Local.sHold)
+	V.uGlobal.uMQDN(0)!MQDN_PRICE2.set(V.local.sHold)
+
+	F.Intrinsic.String.Format(V.uGlobal.uMQD(2)!Qty,"0.0000",V.Local.sHold)
+	F.Intrinsic.String.LPad(V.Local.sHold," ",12,V.Local.sHold)
+	F.Intrinsic.String.Left(V.Local.sHold,12,V.Local.sHold)
+	V.uGlobal.uMQDN(0)!MQDN_QTY3.set(V.local.sHold)
+
+	F.Intrinsic.String.Format(V.uGlobal.uMQD(2)!Price,"0.0000",V.Local.sHold)
+	F.Intrinsic.String.LPad(V.Local.sHold," ",12,V.Local.sHold)
+	F.Intrinsic.String.Left(V.Local.sHold,12,V.Local.sHold)
+	V.uGlobal.uMQDN(0)!MQDN_PRICE3.set(V.local.sHold)
+
+F.Intrinsic.String.Split("20*!*12*!*12*!*12*!*12*!*12*!*12*!*168","*!*",V.Local.iLengthArray)
+V.Local.sElements.Set("Parts*!*MQDN_QTY1*!*MQDN_PRICE1*!*MQDN_QTY2*!*MQDN_PRICE2*!*MQDN_QTY3*!*MQDN_PRICE3*!*MQDN_SPACE")
+
+	f.Intrinsic.Variable.UDTPositionToString(v.uGlobal.uMQDN,v.Local.sElements,0,"*!*",v.Local.sLine)
+	F.Intrinsic.String.Split(V.Local.sLine,"*!*",V.Local.sLine)
+	F.Intrinsic.String.PositionalString(V.Local.sLine,V.Local.iLengthArray,V.Local.sLine)
+	Function.Intrinsic.Control.If(V.Local.sUPL.Trim,=,"")
+		V.Local.sUPL.Set(V.Local.sLine)
+	Function.Intrinsic.Control.Else
+		F.Intrinsic.String.Build("{0}{1}{2}",V.Local.sUPL,V.Ambient.NewLine,V.Local.sLine,V.Local.sUPL)
+	Function.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Build("{0}\MQTYDISC.txt",V.Caller.FilesDir,V.Local.sFQN)
+Function.Intrinsic.File.Exists(V.Local.sFQN,V.Local.bEx)
+Function.Intrinsic.Control.If(V.Local.bEx,=,True)
+	F.Intrinsic.File.DeleteFile(V.Local.sFQN)
+Function.Intrinsic.Control.EndIf
+
+
+'F.Intrinsic.Debug.CallWrapperDebugEnable
+Function.Intrinsic.Control.If(V.Local.sUPL.Trim,<>,"")
+	F.Intrinsic.File.String2File(V.Local.sFQN,V.Local.sUPL)
+	'call upload.
+	F.Global.General.CallWrapperSync(50,"UPLMQDSC")
+	
+'	F.Intrinsic.String.Concat(V.Caller.CompanyCode,"1","UPLMQDSC",V.Local.sparam)
+'	F.Intrinsic.Task.LaunchGSSSync("UPL001A","-c",V.Local.sparam)
+Function.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("BuildMQD_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_4317_RTRLOAD.g2u",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.BuildMQD.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_4317_RTRLOAD.g2u$}$RAN$}$1/18/2017 1:09:33 PM$}$False
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$This project will allow the user to select a CSV file which the program will then generate a router based off of the information within. The file format must be exactly the same every time, otherwise this program will not work.
+
+This program will also generate an additional part on the router which is simply the finished good part + "-F". This will then be used to keep track of freight costs for the router.
+Program.Sub.Comments.End
